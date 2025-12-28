@@ -17,6 +17,7 @@ export interface EmailAccount {
   provider: string;
   auth_method: string;
   username?: string; // 用户名（用于自定义邮箱）
+  password?: string; // 邮箱密码（用于记录，OAuth2账户也可能有）
   group_id?: number;
 
   // IMAP配置

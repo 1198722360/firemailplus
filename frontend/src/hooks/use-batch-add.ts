@@ -135,6 +135,7 @@ export function useBatchAddAccounts() {
           provider: 'outlook',
           client_id: accountData.client_id,
           refresh_token: accountData.refresh_token,
+          password: accountData.password, // 保存邮箱密码
           scope:
             'https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send offline_access',
           group_id: groupId,

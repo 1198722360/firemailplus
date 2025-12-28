@@ -147,6 +147,7 @@ func setupRoutes(router *gin.Engine, h *handlers.Handler) {
 			accounts.POST("/:id/test", h.TestEmailAccount)
 			accounts.POST("/:id/sync", h.SyncEmailAccount)
 			accounts.PUT("/:id/mark-read", h.MarkAccountAsRead)
+			accounts.GET("/:id/export", h.ExportAccountCredentials)
 			accounts.POST("/batch/delete", h.BatchDeleteEmailAccounts)
 			accounts.POST("/batch/sync", h.BatchSyncEmailAccounts)
 			accounts.POST("/batch/mark-read", h.BatchMarkAccountsAsRead)

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Save, TestTube, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Save, TestTube, RefreshCw, Eye, EyeOff, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,9 +56,11 @@ export function OAuth2EditForm({
 }: OAuth2EditFormProps) {
   const [showClientSecret, setShowClientSecret] = useState(false);
   const [showRefreshToken, setShowRefreshToken] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isReauthing, setIsReauthing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const { authenticateGmail, authenticateOutlook } = useOAuth2();
 
   const {
@@ -178,6 +180,32 @@ export function OAuth2EditForm({
     }
   };
 
+  const handleExport = async () => {
+    if (account.provider !== 'outlook') {
+      toast.error('仅支持导出Outlook账户');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const response = await apiClient.exportAccountCredentials(account.id);
+      if (response.success && response.data) {
+        const { email, password, client_id, refresh_token } = response.data;
+        const exportStr = `${email}----${password || ''}----${client_id}----${refresh_token}`;
+
+        await navigator.clipboard.writeText(exportStr);
+        toast.success('已复制到剪贴板');
+      } else {
+        throw new Error(response.message || '导出失败');
+      }
+    } catch (error: unknown) {
+      console.error('Export failed:', error);
+      toast.error(getErrorMessage(error, '导出失败'));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* 账户信息 */}
@@ -221,6 +249,30 @@ export function OAuth2EditForm({
             <div className="text-sm text-gray-600 dark:text-gray-400 p-2 bg-gray-50 dark:bg-gray-700 rounded">
               {account.email}
             </div>
+          </div>
+        )}
+
+        {/* 邮箱密码（仅Outlook OAuth2账户显示） */}
+        {account.provider === 'outlook' && account.password && (
+          <div>
+            <Label>邮箱密码</Label>
+            <div className="relative">
+              <div className="text-sm text-gray-600 dark:text-gray-400 p-2 bg-gray-50 dark:bg-gray-700 rounded pr-10 font-mono">
+                {showPassword ? account.password : '••••••••••••'}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              此密码用于公开查件功能，非OAuth2认证密码
+            </p>
           </div>
         )}
 
@@ -314,10 +366,20 @@ export function OAuth2EditForm({
 
       {/* 底部按钮 */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-        <Button type="button" variant="outline" onClick={handleTestConnection} disabled={isTesting}>
-          <TestTube className="w-4 h-4 mr-2" />
-          {isTesting ? '测试中...' : '测试连接'}
-        </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={handleTestConnection} disabled={isTesting}>
+            <TestTube className="w-4 h-4 mr-2" />
+            {isTesting ? '测试中...' : '测试连接'}
+          </Button>
+
+          {/* 导出按钮（仅Outlook账户显示） */}
+          {account.provider === 'outlook' && (
+            <Button type="button" variant="outline" onClick={handleExport} disabled={isExporting}>
+              <Copy className="w-4 h-4 mr-2" />
+              {isExporting ? '导出中...' : '导出'}
+            </Button>
+          )}
+        </div>
 
         <div className="flex gap-3">
           <Button type="button" variant="outline" onClick={onCancel}>

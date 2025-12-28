@@ -238,6 +238,15 @@ class ApiClient {
     });
   }
 
+  async exportAccountCredentials(accountId: number): Promise<ApiResponse<{
+    email: string;
+    password: string;
+    client_id: string;
+    refresh_token: string;
+  }>> {
+    return this.request(`/accounts/${accountId}/export`);
+  }
+
   // 邮箱分组相关 API
   async getEmailGroups(): Promise<ApiResponse<EmailGroup[]>> {
     return this.request('/groups');
@@ -342,6 +351,7 @@ class ApiClient {
     client_id: string;
     client_secret?: string;
     refresh_token: string;
+    password?: string; // 邮箱密码（用于记录）
     scope?: string;
     auth_url?: string;
     token_url?: string;

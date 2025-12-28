@@ -259,6 +259,7 @@ type CreateManualOAuth2AccountRequest struct {
 	ClientID     string `json:"client_id" binding:"required"`
 	ClientSecret string `json:"client_secret"` // 可选，某些情况下不需要
 	RefreshToken string `json:"refresh_token" binding:"required"`
+	Password     string `json:"password"`      // 邮箱密码（用于记录，非OAuth2认证）
 	Scope        string `json:"scope"`
 	// 可选的自定义端点配置
 	AuthURL  string `json:"auth_url,omitempty"`
@@ -543,6 +544,8 @@ func (h *Handler) CreateManualOAuth2Account(c *gin.Context) {
 		Email:        req.Email,
 		Provider:     req.Provider,
 		AuthMethod:   "oauth2",
+		Username:     req.Email,
+		Password:     req.Password, // 保存邮箱密码（用于记录）
 		IMAPHost:     imapHost,
 		IMAPPort:     imapPort,
 		IMAPSecurity: "SSL", // Outlook使用SSL

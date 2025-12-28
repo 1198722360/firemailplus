@@ -438,3 +438,52 @@ func (h *Handler) isValidSecurityOption(option string, validOptions []string) bo
 	}
 	return false
 }
+
+// ExportAccountCredentials 导出账户凭据（用于批量导入格式）
+func (h *Handler) ExportAccountCredentials(c *gin.Context) {
+	userID, exists := h.getCurrentUserID(c)
+	if !exists {
+		return
+	}
+
+	accountID, exists := h.parseUintParam(c, "id")
+	if !exists {
+		return
+	}
+
+	account, err := h.emailService.GetEmailAccount(c.Request.Context(), userID, accountID)
+	if err != nil {
+		h.respondWithError(c, http.StatusNotFound, "Email account not found")
+		return
+	}
+
+	// 只支持OAuth2账户导出
+	if account.AuthMethod != "oauth2" {
+		h.respondWithError(c, http.StatusBadRequest, "Only OAuth2 accounts can be exported")
+		return
+	}
+
+	// 获取OAuth2 token数据
+	tokenData, err := account.GetOAuth2Token()
+	if err != nil {
+		h.respondWithError(c, http.StatusInternalServerError, "Failed to get OAuth2 token data")
+		return
+	}
+
+	clientID := ""
+	refreshToken := ""
+	if tokenData != nil {
+		clientID = tokenData.ClientID
+		refreshToken = tokenData.RefreshToken
+	}
+
+	// 返回导出数据
+	exportData := map[string]string{
+		"email":         account.Email,
+		"password":      account.Password,
+		"client_id":     clientID,
+		"refresh_token": refreshToken,
+	}
+
+	h.respondWithSuccess(c, exportData)
+}

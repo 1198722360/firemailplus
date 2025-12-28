@@ -233,7 +233,7 @@ export function OutlookBatchForm({ onSuccess, onCancel }: OutlookBatchFormProps)
                   <li>
                   邮箱必须是Outlook相关域名（@outlook.*、@hotmail.*、@live.*、@msn.*）
                   </li>
-                  <li>密码字段保留但不使用（OAuth2模式）</li>
+                  <li>密码字段会保存到数据库（用于记录和公开查件）</li>
                   <li>客户端ID必须是有效的UUID格式</li>
                   <li>刷新令牌必须是有效的OAuth2刷新令牌</li>
                 </ul>
