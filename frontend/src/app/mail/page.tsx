@@ -1,18 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1';
 
+// localStorage key for storing credentials
+const STORAGE_KEY = 'public_mail_credentials';
+
 interface Email {
   id: number;
   subject: string;
-  from_name: string;
-  from_address: string;
-  to_addresses: string[];
+  from: string; // 后端返回的是 "from" 字段，格式可能是 "Name <email>" 或 JSON
+  to: string;
   date: string;
   preview?: string;
   text_body?: string;
@@ -28,11 +30,69 @@ interface EmailListResponse {
   page_size: number;
 }
 
+// 解析发件人信息
+function parseFromField(from: string): { name: string; address: string } {
+  if (!from) return { name: '', address: '' };
+
+  // 尝试解析 JSON 格式 (如 {"name":"xxx","address":"xxx@xxx.com"})
+  try {
+    const parsed = JSON.parse(from);
+    if (parsed && typeof parsed === 'object') {
+      return {
+        name: parsed.name || '',
+        address: parsed.address || parsed.email || '',
+      };
+    }
+  } catch {
+    // 不是 JSON，继续尝试其他格式
+  }
+
+  // 尝试解析 "Name <email@address.com>" 格式
+  const match = from.match(/^(.+?)\s*<([^>]+)>$/);
+  if (match) {
+    return {
+      name: match[1].trim().replace(/^["']|["']$/g, ''),
+      address: match[2].trim(),
+    };
+  }
+
+  // 如果只是纯邮箱地址
+  if (from.includes('@')) {
+    return { name: '', address: from.trim() };
+  }
+
+  return { name: from, address: '' };
+}
+
+// 解析收件人信息
+function parseToField(to: string): string[] {
+  if (!to) return [];
+
+  // 尝试解析 JSON 数组格式
+  try {
+    const parsed = JSON.parse(to);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') {
+          return item.address || item.email || '';
+        }
+        return '';
+      }).filter(Boolean);
+    }
+  } catch {
+    // 不是 JSON，按逗号分隔
+  }
+
+  return to.split(',').map((addr) => addr.trim()).filter(Boolean);
+}
+
 export default function PublicMailPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAutoLogging, setIsAutoLogging] = useState(true);
   const [error, setError] = useState('');
   const [emails, setEmails] = useState<Email[]>([]);
   const [totalEmails, setTotalEmails] = useState(0);
@@ -40,6 +100,50 @@ export default function PublicMailPage() {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const pageSize = 20;
+
+  // 页面加载时尝试自动登录
+  useEffect(() => {
+    const savedCredentials = localStorage.getItem(STORAGE_KEY);
+    if (savedCredentials) {
+      try {
+        const { email: savedEmail, password: savedPassword } = JSON.parse(savedCredentials);
+        if (savedEmail && savedPassword) {
+          setEmail(savedEmail);
+          setPassword(savedPassword);
+          // 自动登录
+          autoLogin(savedEmail, savedPassword);
+          return;
+        }
+      } catch {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+    setIsAutoLogging(false);
+  }, []);
+
+  const autoLogin = async (savedEmail: string, savedPassword: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/public/emails/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: savedEmail, password: savedPassword }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIsLoggedIn(true);
+        loadEmailsWithCredentials(savedEmail, savedPassword, 1);
+      } else {
+        // 自动登录失败，清除保存的凭据
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    } finally {
+      setIsAutoLogging(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +160,8 @@ export default function PublicMailPage() {
       const data = await response.json();
 
       if (data.success) {
+        // 保存凭据到 localStorage
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ email, password }));
         setIsLoggedIn(true);
         loadEmails(1);
       } else {
@@ -68,7 +174,12 @@ export default function PublicMailPage() {
     }
   };
 
-  const loadEmails = async (page: number, sync = false) => {
+  const loadEmailsWithCredentials = async (
+    emailAddr: string,
+    pwd: string,
+    page: number,
+    sync = false
+  ) => {
     setIsLoading(true);
     try {
       const endpoint = sync ? '/public/emails/sync-and-list' : '/public/emails/list';
@@ -76,8 +187,8 @@ export default function PublicMailPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email,
-          password,
+          email: emailAddr,
+          password: pwd,
           page,
           page_size: pageSize,
           sort_by: 'date',
@@ -100,6 +211,10 @@ export default function PublicMailPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadEmails = async (page: number, sync = false) => {
+    loadEmailsWithCredentials(email, password, page, sync);
   };
 
   const loadEmailDetail = async (emailId: number) => {
@@ -130,6 +245,8 @@ export default function PublicMailPage() {
   };
 
   const handleLogout = () => {
+    // 清除保存的凭据
+    localStorage.removeItem(STORAGE_KEY);
     setIsLoggedIn(false);
     setEmail('');
     setPassword('');
@@ -138,19 +255,33 @@ export default function PublicMailPage() {
     setError('');
   };
 
-  const formatDate = (dateStr: string) => {
+  // 格式化日期时间（完整格式，包含秒）
+  const formatDateTime = (dateStr: string) => {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-
-    if (isToday) {
-      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    }
-    return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   };
 
   const totalPages = Math.ceil(totalEmails / pageSize) || 1;
+
+  // 自动登录加载中
+  if (isAutoLogging) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+        <div className="text-center text-white">
+          <div className="w-10 h-10 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div>正在自动登录...</div>
+        </div>
+      </div>
+    );
+  }
 
   // 登录界面
   if (!isLoggedIn) {
@@ -221,6 +352,9 @@ export default function PublicMailPage() {
   const EmailDetailModal = () => {
     if (!selectedEmail) return null;
 
+    const fromInfo = parseFromField(selectedEmail.from);
+    const toAddresses = parseToField(selectedEmail.to);
+
     return (
       <div
         className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
@@ -245,17 +379,17 @@ export default function PublicMailPage() {
           <div className="p-4 bg-gray-50 dark:bg-gray-900 text-sm text-gray-600 dark:text-gray-400">
             <p>
               <strong>发件人：</strong>
-              {selectedEmail.from_name
-                ? `${selectedEmail.from_name} <${selectedEmail.from_address}>`
-                : selectedEmail.from_address}
+              {fromInfo.name
+                ? `${fromInfo.name} <${fromInfo.address}>`
+                : fromInfo.address || '未知发件人'}
             </p>
             <p>
               <strong>收件人：</strong>
-              {selectedEmail.to_addresses?.join(', ') || '-'}
+              {toAddresses.length > 0 ? toAddresses.join(', ') : '-'}
             </p>
             <p>
               <strong>时间：</strong>
-              {new Date(selectedEmail.date).toLocaleString('zh-CN')}
+              {formatDateTime(selectedEmail.date)}
             </p>
           </div>
 
@@ -335,58 +469,63 @@ export default function PublicMailPage() {
               </div>
             ) : (
               <div className="divide-y dark:divide-gray-700">
-                {emails.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => loadEmailDetail(item.id)}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                      !item.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          item.is_read
-                            ? 'bg-gray-200 dark:bg-gray-700 text-gray-500'
-                            : 'bg-indigo-500 text-white'
-                        }`}
-                      >
-                        {item.is_read ? '📧' : '📩'}
-                      </div>
+                {emails.map((item) => {
+                  const fromInfo = parseFromField(item.from);
+                  const senderDisplay = fromInfo.name || fromInfo.address || '未知发件人';
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center mb-1">
-                          <div
-                            className={`font-medium truncate ${
-                              item.is_read
-                                ? 'text-gray-700 dark:text-gray-300'
-                                : 'text-gray-900 dark:text-gray-100'
-                            }`}
-                          >
-                            {item.from_name || item.from_address || '未知发件人'}
-                          </div>
-                          <div className="text-xs text-gray-400 dark:text-gray-500 ml-2 flex-shrink-0">
-                            {formatDate(item.date)}
-                          </div>
-                        </div>
-
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => loadEmailDetail(item.id)}
+                      className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                        !item.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
                         <div
-                          className={`text-sm truncate mb-1 ${
+                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                             item.is_read
-                              ? 'text-gray-600 dark:text-gray-400'
-                              : 'text-gray-900 dark:text-gray-100 font-medium'
+                              ? 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                              : 'bg-indigo-500 text-white'
                           }`}
                         >
-                          {item.subject || '(无主题)'}
+                          {item.is_read ? '📧' : '📩'}
                         </div>
 
-                        <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                          {item.preview || item.text_body?.substring(0, 100) || ''}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center mb-1">
+                            <div
+                              className={`font-medium truncate ${
+                                item.is_read
+                                  ? 'text-gray-700 dark:text-gray-300'
+                                  : 'text-gray-900 dark:text-gray-100'
+                              }`}
+                            >
+                              {senderDisplay}
+                            </div>
+                            <div className="text-xs text-gray-400 dark:text-gray-500 ml-2 flex-shrink-0 whitespace-nowrap">
+                              {formatDateTime(item.date)}
+                            </div>
+                          </div>
+
+                          <div
+                            className={`text-sm truncate mb-1 ${
+                              item.is_read
+                                ? 'text-gray-600 dark:text-gray-400'
+                                : 'text-gray-900 dark:text-gray-100 font-medium'
+                            }`}
+                          >
+                            {item.subject || '(无主题)'}
+                          </div>
+
+                          <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                            {item.preview || item.text_body?.substring(0, 100) || ''}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
