@@ -27,7 +27,7 @@ type EmailAccount struct {
 
 	// 认证信息（加密存储）
 	Username string `gorm:"size:100" json:"username,omitempty"`
-	Password string `gorm:"size:255" json:"-"` // 密码不在JSON中返回
+	Password string `gorm:"size:255" json:"password,omitempty"` // 邮箱密码
 
 	// OAuth2信息
 	OAuth2Token string `gorm:"column:oauth2_token;type:text" json:"-"` // OAuth2 token（JSON格式，加密存储）

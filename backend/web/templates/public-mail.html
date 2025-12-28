@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}} - 邮件查询</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 登录表单 */
+        .login-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+            max-width: 400px;
+            margin: 40px auto;
+        }
+
+        .login-card h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 1.3rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        /* 邮件界面 */
+        .mail-container {
+            display: none;
+        }
+
+        .mail-header {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .mail-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .mail-header .user-info .avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .mail-header .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mail-header .actions button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .btn-sync {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-sync:hover {
+            background: #218838;
+        }
+
+        .btn-logout {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-logout:hover {
+            background: #c82333;
+        }
+
+        /* 邮件列表 */
+        .mail-list {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+
+        .mail-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            gap: 15px;
+        }
+
+        .mail-item:hover {
+            background: #f8f9fa;
+        }
+
+        .mail-item:last-child {
+            border-bottom: none;
+        }
+
+        .mail-item.unread {
+            background: #f0f7ff;
+        }
+
+        .mail-item.unread:hover {
+            background: #e3f0ff;
+        }
+
+        .mail-item .mail-icon {
+            width: 40px;
+            height: 40px;
+            background: #e9ecef;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .mail-item.unread .mail-icon {
+            background: #667eea;
+            color: white;
+        }
+
+        .mail-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mail-content .mail-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .mail-content .from {
+            font-weight: 600;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mail-item.unread .from {
+            color: #000;
+        }
+
+        .mail-content .date {
+            font-size: 0.8rem;
+            color: #888;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+
+        .mail-content .subject {
+            font-size: 0.95rem;
+            color: #444;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mail-item.unread .subject {
+            font-weight: 600;
+            color: #222;
+        }
+
+        .mail-content .preview {
+            font-size: 0.85rem;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 分页 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            gap: 10px;
+        }
+
+        .pagination button {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination .page-info {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* 邮件详情模态框 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .modal-header h3 {
+            font-size: 1.2rem;
+            color: #333;
+            word-break: break-word;
+        }
+
+        .modal-header .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #888;
+            padding: 0 10px;
+        }
+
+        .modal-header .close-btn:hover {
+            color: #333;
+        }
+
+        .modal-meta {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .modal-meta p {
+            margin: 5px 0;
+        }
+
+        .modal-meta strong {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-body .email-content {
+            line-height: 1.6;
+            color: #333;
+        }
+
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .empty-state .icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+
+        /* 错误提示 */
+        .error-message {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            color: #c53030;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .success-message {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            color: #276749;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        /* 响应式 */
+        @media (max-width: 600px) {
+            .mail-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .mail-header .actions {
+                width: 100%;
+            }
+
+            .mail-header .actions button {
+                flex: 1;
+            }
+
+            .mail-item {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .mail-item .mail-icon {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FireMail 邮件查询</h1>
+        <p>输入邮箱和密码查看邮件</p>
+    </div>
+
+    <div class="container">
+        <!-- 登录表单 -->
+        <div class="login-card" id="loginCard">
+            <h2>登录查看邮件</h2>
+            <div id="loginError" class="error-message" style="display: none;"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">邮箱地址</label>
+                    <input type="email" id="email" name="email" placeholder="your@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">邮箱密码</label>
+                    <input type="password" id="password" name="password" placeholder="请输入邮箱密码" required>
+                </div>
+                <button type="submit" class="btn" id="loginBtn">查看邮件</button>
+            </form>
+        </div>
+
+        <!-- 邮件界面 -->
+        <div class="mail-container" id="mailContainer">
+            <div class="mail-header">
+                <div class="user-info">
+                    <div class="avatar" id="userAvatar">U</div>
+                    <div>
+                        <div style="font-weight: 600;" id="userEmail">user@email.com</div>
+                        <div style="font-size: 0.8rem; color: #888;" id="emailCount">共 0 封邮件</div>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn-sync" id="syncBtn" onclick="syncEmails()">
+                        <span id="syncText">同步邮件</span>
+                    </button>
+                    <button class="btn-logout" onclick="logout()">退出</button>
+                </div>
+            </div>
+
+            <div class="mail-list" id="mailList">
+                <div class="loading" id="mailLoading">
+                    <div class="loading-spinner"></div>
+                    <div>正在加载邮件...</div>
+                </div>
+            </div>
+
+            <div class="pagination" id="pagination" style="display: none;">
+                <button id="prevBtn" onclick="prevPage()">上一页</button>
+                <span class="page-info" id="pageInfo">第 1 页</span>
+                <button id="nextBtn" onclick="nextPage()">下一页</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 邮件详情模态框 -->
+    <div class="modal-overlay" id="emailModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalSubject">邮件主题</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-meta">
+                <p><strong>发件人：</strong><span id="modalFrom">-</span></p>
+                <p><strong>收件人：</strong><span id="modalTo">-</span></p>
+                <p><strong>时间：</strong><span id="modalDate">-</span></p>
+            </div>
+            <div class="modal-body">
+                <div class="email-content" id="modalContent">
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <div>正在加载邮件内容...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局状态
+        let currentEmail = '';
+        let currentPassword = '';
+        let currentPage = 1;
+        let totalPages = 1;
+        let totalEmails = 0;
+        const pageSize = 20;
+
+        // DOM 元素
+        const loginCard = document.getElementById('loginCard');
+        const mailContainer = document.getElementById('mailContainer');
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        const mailList = document.getElementById('mailList');
+        const mailLoading = document.getElementById('mailLoading');
+        const pagination = document.getElementById('pagination');
+        const emailModal = document.getElementById('emailModal');
+
+        // 登录表单提交
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = '验证中...';
+            loginError.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/v1/public/emails/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentEmail = email;
+                    currentPassword = password;
+                    showMailInterface();
+                    loadEmails();
+                } else {
+                    loginError.textContent = data.message || '邮箱或密码错误';
+                    loginError.style.display = 'block';
+                }
+            } catch (error) {
+                loginError.textContent = '网络错误，请稍后重试';
+                loginError.style.display = 'block';
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = '查看邮件';
+            }
+        });
+
+        // 显示邮件界面
+        function showMailInterface() {
+            loginCard.style.display = 'none';
+            mailContainer.style.display = 'block';
+            document.getElementById('userEmail').textContent = currentEmail;
+            document.getElementById('userAvatar').textContent = currentEmail.charAt(0).toUpperCase();
+        }
+
+        // 加载邮件列表
+        async function loadEmails(sync = false) {
+            mailList.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div>${sync ? '正在同步邮件...' : '正在加载邮件...'}</div>
+                </div>
+            `;
+            pagination.style.display = 'none';
+
+            try {
+                const endpoint = sync ? '/api/v1/public/emails/sync-and-list' : '/api/v1/public/emails/list';
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: currentEmail,
+                        password: currentPassword,
+                        page: currentPage,
+                        page_size: pageSize,
+                        sort_by: 'date',
+                        sort_order: 'desc'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    renderEmails(data.data);
+                } else {
+                    mailList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">⚠️</div>
+                            <div>${data.message || '加载失败'}</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                mailList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">⚠️</div>
+                        <div>网络错误，请稍后重试</div>
+                    </div>
+                `;
+            }
+        }
+
+        // 渲染邮件列表
+        function renderEmails(data) {
+            const emails = data.emails || [];
+            totalEmails = data.total || 0;
+            totalPages = Math.ceil(totalEmails / pageSize) || 1;
+
+            document.getElementById('emailCount').textContent = `共 ${totalEmails} 封邮件`;
+
+            if (emails.length === 0) {
+                mailList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">📭</div>
+                        <div>暂无邮件</div>
+                    </div>
+                `;
+                return;
+            }
+
+            mailList.innerHTML = emails.map(email => `
+                <div class="mail-item ${email.is_read ? '' : 'unread'}" onclick="openEmail(${email.id})">
+                    <div class="mail-icon">${email.is_read ? '📧' : '📩'}</div>
+                    <div class="mail-content">
+                        <div class="mail-header-row">
+                            <div class="from">${escapeHtml(email.from_name || email.from_address || '未知发件人')}</div>
+                            <div class="date">${formatDate(email.date)}</div>
+                        </div>
+                        <div class="subject">${escapeHtml(email.subject || '(无主题)')}</div>
+                        <div class="preview">${escapeHtml(email.preview || email.text_body?.substring(0, 100) || '')}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // 显示分页
+            if (totalPages > 1) {
+                pagination.style.display = 'flex';
+                document.getElementById('pageInfo').textContent = `第 ${currentPage} / ${totalPages} 页`;
+                document.getElementById('prevBtn').disabled = currentPage <= 1;
+                document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+            }
+        }
+
+        // 打开邮件详情
+        async function openEmail(emailId) {
+            emailModal.classList.add('show');
+            document.getElementById('modalSubject').textContent = '加载中...';
+            document.getElementById('modalFrom').textContent = '-';
+            document.getElementById('modalTo').textContent = '-';
+            document.getElementById('modalDate').textContent = '-';
+            document.getElementById('modalContent').innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div>正在加载邮件内容...</div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/v1/public/emails/detail', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: currentEmail,
+                        password: currentPassword,
+                        email_id: emailId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const email = data.data;
+                    document.getElementById('modalSubject').textContent = email.subject || '(无主题)';
+                    document.getElementById('modalFrom').textContent = email.from_name ?
+                        `${email.from_name} <${email.from_address}>` : email.from_address;
+                    document.getElementById('modalTo').textContent = email.to_addresses?.join(', ') || '-';
+                    document.getElementById('modalDate').textContent = formatDate(email.date, true);
+
+                    // 显示邮件内容
+                    if (email.html_body) {
+                        document.getElementById('modalContent').innerHTML = email.html_body;
+                    } else if (email.text_body) {
+                        document.getElementById('modalContent').innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(email.text_body)}</pre>`;
+                    } else {
+                        document.getElementById('modalContent').innerHTML = '<p style="color: #888;">邮件内容为空</p>';
+                    }
+                } else {
+                    document.getElementById('modalContent').innerHTML = `<p style="color: #c53030;">${data.message || '加载失败'}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('modalContent').innerHTML = '<p style="color: #c53030;">网络错误，请稍后重试</p>';
+            }
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            emailModal.classList.remove('show');
+        }
+
+        // 同步邮件
+        async function syncEmails() {
+            const syncBtn = document.getElementById('syncBtn');
+            const syncText = document.getElementById('syncText');
+
+            syncBtn.disabled = true;
+            syncText.textContent = '同步中...';
+
+            await loadEmails(true);
+
+            syncBtn.disabled = false;
+            syncText.textContent = '同步邮件';
+        }
+
+        // 上一页
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadEmails();
+            }
+        }
+
+        // 下一页
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadEmails();
+            }
+        }
+
+        // 退出
+        function logout() {
+            currentEmail = '';
+            currentPassword = '';
+            currentPage = 1;
+            loginCard.style.display = 'block';
+            mailContainer.style.display = 'none';
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+            loginError.style.display = 'none';
+        }
+
+        // 格式化日期
+        function formatDate(dateStr, full = false) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const isToday = date.toDateString() === now.toDateString();
+
+            if (full) {
+                return date.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            if (isToday) {
+                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            }
+
+            return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+        }
+
+        // HTML 转义
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 点击模态框外部关闭
+        emailModal.addEventListener('click', (e) => {
+            if (e.target === emailModal) {
+                closeModal();
+            }
+        });
+
+        // ESC 关闭模态框
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

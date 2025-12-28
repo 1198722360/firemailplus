@@ -236,6 +236,15 @@ func setupRoutes(router *gin.Engine, h *handlers.Handler) {
 			sse.GET("/stats", h.AuthRequired(), h.GetSSEStats)   // 统计需要认证
 			sse.POST("/test", h.AuthRequired(), h.SendTestEvent) // 测试需要认证
 		}
+
+		// 公开查件路由（不需要系统登录，通过邮箱+密码鉴权）
+		publicEmails := api.Group("/public/emails")
+		{
+			publicEmails.POST("/verify", h.PublicVerifyEmailAccount)   // 验证邮箱账户
+			publicEmails.POST("/list", h.PublicGetEmails)              // 获取邮件列表
+			publicEmails.POST("/sync-and-list", h.PublicSyncAndGetEmails) // 同步并获取邮件
+			publicEmails.POST("/detail", h.PublicGetEmailDetail)       // 获取邮件详情
+		}
 	}
 
 	// 静态文件服务
@@ -253,6 +262,13 @@ func setupRoutes(router *gin.Engine, h *handlers.Handler) {
 	router.GET("/sse-demo", func(c *gin.Context) {
 		c.HTML(200, "sse-demo.html", gin.H{
 			"title": "FireMail SSE Demo",
+		})
+	})
+
+	// 公开查件页面
+	router.GET("/mail", func(c *gin.Context) {
+		c.HTML(200, "public-mail.html", gin.H{
+			"title": "FireMail",
 		})
 	})
 }
