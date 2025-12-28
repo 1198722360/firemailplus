@@ -19,6 +19,7 @@ import type { AccountEditConfig } from './account-edit-config';
 const oauth2EditSchema = z.object({
   name: z.string().min(1, '账户名称不能为空'),
   email: z.string().email('请输入有效的邮箱地址').optional(),
+  password: z.string().optional(),
   client_id: z.string().optional(),
   client_secret: z.string().optional(),
   refresh_token: z.string().optional(),
@@ -30,6 +31,7 @@ type OAuth2EditForm = z.infer<typeof oauth2EditSchema>;
 type UpdateAccountPayload = {
   name?: string;
   email?: string;
+  password?: string;
   is_active?: boolean;
   client_id?: string;
   client_secret?: string;
@@ -80,6 +82,7 @@ export function OAuth2EditForm({
       reset({
         name: account.name,
         email: account.email,
+        password: account.password || '',
         client_id: '', // OAuth2配置不显示敏感信息
         client_secret: '',
         refresh_token: '',
@@ -102,6 +105,11 @@ export function OAuth2EditForm({
       }
       if (config.editableFields.includes('is_active')) {
         updateData.is_active = data.is_active;
+      }
+
+      // Outlook账户的密码字段
+      if (account.provider === 'outlook' && data.password !== undefined) {
+        updateData.password = data.password;
       }
 
       // OAuth2配置字段
@@ -193,7 +201,22 @@ export function OAuth2EditForm({
         const { email, password, client_id, refresh_token } = response.data;
         const exportStr = `${email}----${password || ''}----${client_id}----${refresh_token}`;
 
-        await navigator.clipboard.writeText(exportStr);
+        // 兼容非HTTPS环境的复制方法
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(exportStr);
+        } else {
+          // 降级方案：使用 textarea + execCommand
+          const textArea = document.createElement('textarea');
+          textArea.value = exportStr;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-999999px';
+          textArea.style.top = '-999999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+        }
         toast.success('已复制到剪贴板');
       } else {
         throw new Error(response.message || '导出失败');
@@ -252,14 +275,18 @@ export function OAuth2EditForm({
           </div>
         )}
 
-        {/* 邮箱密码（仅Outlook OAuth2账户显示） */}
-        {account.provider === 'outlook' && account.password && (
+        {/* 邮箱密码（仅Outlook账户显示，可编辑） */}
+        {account.provider === 'outlook' && (
           <div>
-            <Label>邮箱密码</Label>
+            <Label htmlFor="password">邮箱密码</Label>
             <div className="relative">
-              <div className="text-sm text-gray-600 dark:text-gray-400 p-2 bg-gray-50 dark:bg-gray-700 rounded pr-10 font-mono">
-                {showPassword ? account.password : '••••••••••••'}
-              </div>
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                {...register('password')}
+                placeholder="输入邮箱密码（用于公开查件）"
+                className="pr-10"
+              />
               <Button
                 type="button"
                 variant="ghost"
