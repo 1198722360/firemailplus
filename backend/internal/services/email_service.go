@@ -798,6 +798,9 @@ func (s *EmailServiceImpl) UpdateEmailGroup(ctx context.Context, userID, groupID
 		return nil, fmt.Errorf("failed to update group: %w", err)
 	}
 
+	// 清理缓存使修改立即生效
+	s.invalidateEmailListCache(userID)
+
 	return &group, nil
 }
 
@@ -819,7 +822,7 @@ func (s *EmailServiceImpl) DeleteEmailGroup(ctx context.Context, userID, groupID
 		return err
 	}
 
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.EmailAccount{}).
 			Where("user_id = ? AND group_id = ?", userID, groupID).
 			Update("group_id", defaultGroup.ID).Error; err != nil {
@@ -832,6 +835,15 @@ func (s *EmailServiceImpl) DeleteEmailGroup(ctx context.Context, userID, groupID
 
 		return nil
 	})
+
+	if err != nil {
+		return err
+	}
+
+	// 清理缓存使修改立即生效
+	s.invalidateEmailListCache(userID)
+
+	return nil
 }
 
 // ReorderEmailGroups 调整分组排序
@@ -894,6 +906,9 @@ func (s *EmailServiceImpl) ReorderEmailGroups(ctx context.Context, userID uint, 
 		return nil, fmt.Errorf("failed to commit sort order: %w", err)
 	}
 
+	// 清理缓存使修改立即生效
+	s.invalidateEmailListCache(userID)
+
 	return s.GetEmailGroups(ctx, userID)
 }
 
@@ -910,7 +925,14 @@ func (s *EmailServiceImpl) MoveAccountToGroup(ctx context.Context, userID, accou
 	}
 
 	account.GroupID = &targetGroup.ID
-	return s.db.WithContext(ctx).Save(account).Error
+	if err := s.db.WithContext(ctx).Save(account).Error; err != nil {
+		return err
+	}
+
+	// 清理缓存使修改立即生效
+	s.invalidateEmailListCache(userID)
+
+	return nil
 }
 
 // SetDefaultEmailGroup 设置默认分组
@@ -987,6 +1009,9 @@ func (s *EmailServiceImpl) SetDefaultEmailGroup(ctx context.Context, userID, gro
 		First(&target).Error; err != nil {
 		return nil, err
 	}
+
+	// 清理缓存使修改立即生效
+	s.invalidateEmailListCache(userID)
 
 	return &target, nil
 }
