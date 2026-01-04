@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { CheckCheck, RefreshCw, Settings, Trash2, Edit, FolderPlus, Star } from 'lucide-react';
+import { CheckCheck, RefreshCw, Settings, Trash2, Edit, FolderPlus, Star, XCircle } from 'lucide-react';
 import { useContextMenuStore, useMailboxStore } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ interface ContextMenuProps {
   onEditGroup?: (targetId: number) => void;
   onDeleteGroup?: (targetId: number) => void;
   onSetDefaultGroup?: (targetId: number) => void;
+  onDeleteGroupWithAccounts?: (targetId: number) => void;
 }
 
 export function ContextMenu({
@@ -31,6 +32,7 @@ export function ContextMenu({
   onEditGroup,
   onDeleteGroup,
   onSetDefaultGroup,
+  onDeleteGroupWithAccounts,
 }: ContextMenuProps) {
   const { isOpen, position, target, closeMenu } = useContextMenuStore();
   const { accounts, folders, setFolders, setEmails, updateAccount, emails } = useMailboxStore();
@@ -192,6 +194,12 @@ export function ContextMenu({
             onSetDefaultGroup?.(target.id);
           }
           break;
+
+        case 'deleteGroupWithAccounts':
+          if (target.type === 'group') {
+            onDeleteGroupWithAccounts?.(target.id);
+          }
+          break;
       }
     } catch (error: unknown) {
       const message = error instanceof Error && error.message ? error.message : '操作失败';
@@ -249,6 +257,12 @@ export function ContextMenu({
           icon: Trash2,
           label: '删除分组',
           action: 'deleteGroup',
+          danger: true,
+        },
+        {
+          icon: XCircle,
+          label: '删除全部',
+          action: 'deleteGroupWithAccounts',
           danger: true,
         }
       );

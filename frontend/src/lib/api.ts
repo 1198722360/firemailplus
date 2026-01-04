@@ -336,6 +336,7 @@ class ApiClient {
     expires_at: number;
     scope?: string;
     client_id: string; // 必需，用于token刷新
+    password?: string; // 邮箱密码（用于记录）
     group_id?: number;
   }): Promise<ApiResponse<EmailAccount>> {
     return this.request<EmailAccount>('/oauth/create-account', {

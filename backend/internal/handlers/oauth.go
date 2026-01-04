@@ -248,6 +248,7 @@ type CreateOAuth2AccountRequest struct {
 	ExpiresAt    int64  `json:"expires_at" binding:"required"`
 	Scope        string `json:"scope"`
 	ClientID     string `json:"client_id" binding:"required"` // OAuth2客户端ID，必需用于后续token刷新
+	Password     string `json:"password"`                     // 邮箱密码（用于记录，非OAuth2认证）
 	GroupID      *uint  `json:"group_id"`
 }
 
@@ -370,6 +371,7 @@ func (h *Handler) CreateOAuth2Account(c *gin.Context) {
 		Provider:     req.Provider,
 		AuthMethod:   "oauth2",
 		Username:     req.Email,
+		Password:     req.Password, // 保存邮箱密码（用于记录）
 		IMAPHost:     providerConfig.IMAPHost,
 		IMAPPort:     providerConfig.IMAPPort,
 		IMAPSecurity: providerConfig.IMAPSecurity,

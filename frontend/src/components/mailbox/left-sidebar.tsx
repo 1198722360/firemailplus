@@ -371,12 +371,12 @@ export function LeftSidebar() {
 
   const handleSetDefaultGroup = async (group: EmailGroup) => {
     if (group.is_default) return;
-    const confirmed = confirm(`是否将分组“${group.name}”设为默认分组？`);
+    const confirmed = confirm(`是否将分组"${group.name}"设为默认分组？`);
     if (!confirmed) return;
     try {
       const resp = await apiClient.setDefaultEmailGroup(group.id);
       if (resp.success) {
-        toast.success(`已将“${group.name}”设为默认分组`);
+        toast.success(`已将"${group.name}"设为默认分组`);
         await Promise.all([loadGroups(), loadAccounts()]);
       } else {
         throw new Error(resp.message || '设置默认分组失败');
@@ -384,6 +384,43 @@ export function LeftSidebar() {
     } catch (error: unknown) {
       console.error('Set default group failed:', error);
       toast.error(getErrorMessage(error, '设置默认分组失败'));
+    }
+  };
+
+  const handleDeleteGroupWithAccounts = async (group: EmailGroup) => {
+    const accountsInGroup = accountsByGroup.get(group.id) || [];
+    const accountCount = accountsInGroup.length;
+
+    const message = group.is_default
+      ? `确定要删除默认分组"${group.name}"及其中的 ${accountCount} 个邮箱吗？此操作不可撤销！`
+      : `确定要删除分组"${group.name}"及其中的 ${accountCount} 个邮箱吗？此操作不可撤销！`;
+
+    const confirmed = confirm(message);
+    if (!confirmed) return;
+
+    try {
+      // 先删除分组内的所有邮箱
+      if (accountCount > 0) {
+        const accountIds = accountsInGroup.map((a) => a.id);
+        const deleteResp = await apiClient.batchDeleteEmailAccounts(accountIds);
+        if (!deleteResp.success) {
+          throw new Error(deleteResp.message || '删除邮箱失败');
+        }
+      }
+
+      // 再删除分组（默认分组除外）
+      if (!group.is_default) {
+        const groupResp = await apiClient.deleteEmailGroup(group.id);
+        if (!groupResp.success) {
+          throw new Error(groupResp.message || '删除分组失败');
+        }
+      }
+
+      toast.success(`已删除分组"${group.name}"及其中的 ${accountCount} 个邮箱`);
+      await Promise.all([loadGroups(), loadAccounts()]);
+    } catch (error: unknown) {
+      console.error('Delete group with accounts failed:', error);
+      toast.error(getErrorMessage(error, '删除失败'));
     }
   };
 
@@ -619,6 +656,10 @@ export function LeftSidebar() {
         onSetDefaultGroup={(id) => {
           const target = groups.find((g) => g.id === id);
           if (target) handleSetDefaultGroup(target);
+        }}
+        onDeleteGroupWithAccounts={(id) => {
+          const target = groups.find((g) => g.id === id);
+          if (target) handleDeleteGroupWithAccounts(target);
         }}
       />
 

@@ -21,6 +21,7 @@ const outlookOAuth2Schema = z.object({
     .string()
     .email('请输入有效的Outlook邮箱地址')
     .refine((email) => OUTLOOK_DOMAIN_REGEX.test(email), '请输入Outlook相关域名的邮箱地址（@outlook.*、@hotmail.*、@live.*、@msn.*）'),
+  password: z.string().optional(),
 });
 
 type OutlookOAuth2Form = z.infer<typeof outlookOAuth2Schema>;
@@ -47,7 +48,7 @@ export function OutlookOAuth2Form({ onSuccess, onCancel }: OutlookOAuth2FormProp
   const onSubmit = async (data: OutlookOAuth2Form) => {
     setIsAuthenticating(true);
     try {
-      await authenticateOutlook(data.name, data.email, selectedGroupId || undefined);
+      await authenticateOutlook(data.name, data.email, data.password, selectedGroupId || undefined);
       onSuccess?.();
       // 注意：由于使用直接跳转，这里的代码不会执行
       // 成功处理在OAuth回调页面中进行
@@ -109,6 +110,23 @@ export function OutlookOAuth2Form({ onSuccess, onCancel }: OutlookOAuth2FormProp
               {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>}
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 支持 @outlook.*, @hotmail.*, @live.*, @msn.*
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
+                邮箱密码 <span className="text-gray-400">(可选，仅用于记录)</span>
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="用于记录的邮箱密码"
+                {...register('password')}
+                className="mt-1 h-10 border-gray-300 dark:border-gray-600 focus:border-gray-900 dark:focus:border-gray-100"
+                disabled={isAuthenticating}
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                此密码不会用于认证，仅供您记录保存
               </p>
             </div>
 

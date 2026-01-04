@@ -67,6 +67,7 @@ export function useOAuth2() {
       expires_at: number;
       scope?: string;
       client_id: string; // 必需，用于token刷新
+      password?: string; // 邮箱密码（用于记录）
       group_id?: number;
     }) => apiClient.createOAuth2Account(account),
     onSuccess: (response) => {
@@ -189,7 +190,7 @@ export function useOAuth2() {
   };
 
   // Outlook OAuth2 完整流程 - 直接跳转模式
-  const authenticateOutlook = async (accountName: string, email: string, groupId?: number) => {
+  const authenticateOutlook = async (accountName: string, email: string, password?: string, groupId?: number) => {
     try {
       // 1. 将账户信息编码到回调URL中
       const accountInfo = encodeURIComponent(
@@ -197,6 +198,7 @@ export function useOAuth2() {
           name: accountName,
           email: email,
           provider: 'outlook',
+          password: password,
           group_id: groupId,
         })
       );
