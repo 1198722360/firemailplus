@@ -168,7 +168,12 @@ export function useBatchAddAccounts() {
 
   // 批量处理账户
   const processBatch = useCallback(
-    async (accounts: BatchAccountData[], namePrefix: string = 'Outlook账户', groupId?: number) => {
+    async (
+      accounts: BatchAccountData[],
+      namePrefix: string = 'Outlook账户',
+      groupId?: number,
+      concurrency: number = 5
+    ) => {
       if (accounts.length === 0) {
         toast.error('没有有效的账户数据');
         return;
@@ -184,43 +189,32 @@ export function useBatchAddAccounts() {
       });
 
       const results: BatchProcessResult[] = [];
-      const batchSize = 5; // 并发控制，每批最多5个请求
+      const normalizedConcurrency = Number.isFinite(concurrency) ? Math.floor(concurrency) : 5;
+      const maxConcurrency = Math.max(1, Math.min(normalizedConcurrency, 20));
 
       try {
-        for (let i = 0; i < accounts.length; i += batchSize) {
-          const batch = accounts.slice(i, i + batchSize);
+        let nextIndex = 0;
 
-          // 更新当前处理状态
-          setProgress((prev) => ({
-            ...prev,
-            currentItem: `正在处理第 ${i + 1}-${Math.min(i + batchSize, accounts.length)} 个账户...`,
-          }));
+        const worker = async () => {
+          while (true) {
+            const currentIndex = nextIndex;
+            nextIndex += 1;
 
-          // 并发处理当前批次
-          const batchPromises = batch.map((account, batchIndex) => {
-            const accountName = `${namePrefix} ${i + batchIndex + 1}`;
-            return processAccount(account, accountName, groupId);
-          });
-
-          const batchResults = await Promise.allSettled(batchPromises);
-
-          // 处理批次结果
-          batchResults.forEach((result, batchIndex) => {
-            let processResult: BatchProcessResult;
-
-            if (result.status === 'fulfilled') {
-              processResult = result.value;
-            } else {
-              processResult = {
-                success: false,
-                error: getErrorMessage(result.reason, '处理失败'),
-                data: batch[batchIndex],
-              };
+            if (currentIndex >= accounts.length) {
+              return;
             }
 
+            const account = accounts[currentIndex];
+            const accountName = `${namePrefix} ${currentIndex + 1}`;
+
+            setProgress((prev) => ({
+              ...prev,
+              currentItem: `正在处理第 ${currentIndex + 1}/${accounts.length} 个账户...`,
+            }));
+
+            const processResult = await processAccount(account, accountName, groupId);
             results.push(processResult);
 
-            // 更新进度
             setProgress((prev) => ({
               ...prev,
               processed: prev.processed + 1,
@@ -228,13 +222,12 @@ export function useBatchAddAccounts() {
               failed: processResult.success ? prev.failed : prev.failed + 1,
               results: [...prev.results, processResult],
             }));
-          });
-
-          // 批次间延迟，避免服务器过载
-          if (i + batchSize < accounts.length) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
-        }
+        };
+
+        const workerCount = Math.min(maxConcurrency, accounts.length);
+        const workers = Array.from({ length: workerCount }, () => worker());
+        await Promise.all(workers);
 
         // 完成处理
         setProgress((prev) => ({
@@ -265,7 +258,7 @@ export function useBatchAddAccounts() {
 
   // 重试失败的账户
   const retryFailed = useCallback(
-    async (namePrefix: string = 'Outlook账户') => {
+    async (namePrefix: string = 'Outlook账户', concurrency: number = 5) => {
       const failedAccounts = progress.results
         .filter((result) => !result.success)
         .map((result) => result.data);
@@ -275,7 +268,7 @@ export function useBatchAddAccounts() {
         return;
       }
 
-      await processBatch(failedAccounts, namePrefix);
+      await processBatch(failedAccounts, namePrefix, undefined, concurrency);
     },
     [progress.results, processBatch]
   );

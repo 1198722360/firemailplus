@@ -26,6 +26,7 @@ import { EmailGroupSelector } from './email-group-selector';
 const outlookBatchSchema = z.object({
   batchData: z.string().min(1, '请输入批量数据'),
   namePrefix: z.string().min(1, '请输入账户名称前缀'),
+  concurrency: z.coerce.number().int().min(1, '并发数最小为 1').max(20, '并发数最大为 20'),
 });
 
 type OutlookBatchForm = z.infer<typeof outlookBatchSchema>;
@@ -53,6 +54,7 @@ export function OutlookBatchForm({ onSuccess, onCancel }: OutlookBatchFormProps)
     resolver: zodResolver(outlookBatchSchema),
     defaultValues: {
       namePrefix: 'Outlook账户',
+      concurrency: 5,
     },
   });
 
@@ -85,7 +87,7 @@ export function OutlookBatchForm({ onSuccess, onCancel }: OutlookBatchFormProps)
     }
 
     setShowResults(true);
-    await processBatch(accounts, data.namePrefix, selectedGroupId || undefined);
+    await processBatch(accounts, data.namePrefix, selectedGroupId || undefined, data.concurrency);
     onSuccess?.();
   };
 
@@ -155,6 +157,32 @@ export function OutlookBatchForm({ onSuccess, onCancel }: OutlookBatchFormProps)
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 账户将命名为：{watch('namePrefix', 'Outlook账户')} 1,{' '}
                 {watch('namePrefix', 'Outlook账户')} 2...
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="concurrency" className="text-gray-700 dark:text-gray-300">
+                并发数
+              </Label>
+              <input
+                id="concurrency"
+                type="number"
+                min={1}
+                max={20}
+                step={1}
+                {...register('concurrency')}
+                className={`mt-1 h-10 w-full px-3 py-2 border rounded-md ${
+                  errors.concurrency
+                    ? 'border-red-400 focus:border-red-500'
+                    : 'border-gray-300 dark:border-gray-600 focus:border-gray-900 dark:focus:border-gray-100'
+                } bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                disabled={progress.isProcessing}
+              />
+              {errors.concurrency && (
+                <p className="text-sm text-red-500 mt-1">{errors.concurrency.message}</p>
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                默认 5，建议范围 1-20。并发越高速度越快，但更容易触发接口限流。
               </p>
             </div>
 
@@ -305,7 +333,7 @@ user3@live.com----password3----11111111-2222-3333-4444-555555555555----refresh_t
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => retryFailed(watch('namePrefix'))}
+                          onClick={() => retryFailed(watch('namePrefix'), watch('concurrency', 5))}
                           className="text-xs"
                         >
                           <RefreshCw className="w-3 h-3 mr-1" />

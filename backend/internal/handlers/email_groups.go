@@ -29,6 +29,8 @@ func (h *Handler) GetEmailGroups(c *gin.Context) {
 		return
 	}
 
+	// 避免浏览器/代理缓存导致刷新后仍看到旧分组/数量
+	c.Header("Cache-Control", "no-store")
 	h.respondWithSuccess(c, groups)
 }
 

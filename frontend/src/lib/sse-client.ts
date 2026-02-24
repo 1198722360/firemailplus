@@ -187,6 +187,7 @@ export class FireMailSSEClient {
       'account_connected',
       'account_disconnected',
       'account_error',
+      'account_updated',
       'notification',
       'heartbeat',
     ];
@@ -383,6 +384,7 @@ export class FireMailSSEClient {
       'account_connected',
       'account_disconnected',
       'account_error',
+      'account_updated',
       'notification',
       'heartbeat',
     ];

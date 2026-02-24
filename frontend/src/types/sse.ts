@@ -20,6 +20,7 @@ export type SSEEventType =
   | 'account_connected'
   | 'account_disconnected'
   | 'account_error'
+  | 'account_updated'
   | 'notification'
   | 'heartbeat';
 
@@ -81,6 +82,12 @@ export interface AccountEventData {
   error_message?: string;
 }
 
+// 账户更新事件数据（例如分组移动）
+export interface AccountUpdatedEventData {
+  account_id: number;
+  group_id?: number;
+}
+
 // 通知事件数据
 export interface NotificationEventData {
   title: string;
@@ -100,6 +107,7 @@ export type NewEmailEvent = SSEEvent<NewEmailEventData>;
 export type EmailStatusEvent = SSEEvent<EmailStatusEventData>;
 export type SyncEvent = SSEEvent<SyncEventData>;
 export type AccountEvent = SSEEvent<AccountEventData>;
+export type AccountUpdatedEvent = SSEEvent<AccountUpdatedEventData>;
 export type NotificationEvent = SSEEvent<NotificationEventData>;
 export type HeartbeatEvent = SSEEvent<HeartbeatEventData>;
 
@@ -109,6 +117,7 @@ export type AnySSEEvent =
   | EmailStatusEvent
   | SyncEvent
   | AccountEvent
+  | AccountUpdatedEvent
   | NotificationEvent
   | HeartbeatEvent;
 

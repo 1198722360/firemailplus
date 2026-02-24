@@ -23,6 +23,8 @@ func (h *Handler) GetEmailAccounts(c *gin.Context) {
 		return
 	}
 
+	// 避免浏览器/代理缓存导致刷新后仍看到旧分组数据
+	c.Header("Cache-Control", "no-store")
 	h.respondWithSuccess(c, accounts)
 }
 
@@ -65,6 +67,8 @@ func (h *Handler) GetEmailAccount(c *gin.Context) {
 		return
 	}
 
+	// 避免浏览器/代理缓存导致刷新后仍看到旧数据
+	c.Header("Cache-Control", "no-store")
 	h.respondWithSuccess(c, account)
 }
 

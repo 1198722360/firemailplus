@@ -389,6 +389,13 @@ func (s *EmailServiceImpl) UpdateEmailAccount(ctx context.Context, userID, accou
 		return nil, err
 	}
 
+	// 记录更新前分组，用于分组变更时发布 SSE 事件（让前端及时刷新显示）
+	oldGroupIDSet := account.GroupID != nil
+	var oldGroupID uint
+	if oldGroupIDSet {
+		oldGroupID = *account.GroupID
+	}
+
 	// 更新字段
 	if req.Name != nil {
 		account.Name = *req.Name
@@ -443,6 +450,22 @@ func (s *EmailServiceImpl) UpdateEmailAccount(ctx context.Context, userID, accou
 			account.SyncStatus = "error"
 			account.ErrorMessage = err.Error()
 			s.db.Save(account)
+		}
+	}
+
+	// 分组发生变化时，推送 account_updated 事件，避免前端长时间显示旧分组
+	if s.eventPublisher != nil {
+		newGroupIDSet := account.GroupID != nil
+		var newGroupID uint
+		if newGroupIDSet {
+			newGroupID = *account.GroupID
+		}
+		groupChanged := oldGroupIDSet != newGroupIDSet || (oldGroupIDSet && newGroupIDSet && oldGroupID != newGroupID)
+		if groupChanged {
+			event := sse.NewAccountUpdatedEvent(account, userID)
+			if err := s.eventPublisher.PublishToUser(ctx, userID, event); err != nil {
+				log.Printf("Failed to publish account updated event: %v", err)
+			}
 		}
 	}
 

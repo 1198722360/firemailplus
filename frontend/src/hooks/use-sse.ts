@@ -5,6 +5,7 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useAuthStore, useMailboxStore } from '@/lib/store';
 import { FireMailSSEClient } from '@/lib/sse-client';
+import { apiClient } from '@/lib/api';
 import type {
   SSEClientState,
   SSEConnectionStats,
@@ -14,6 +15,7 @@ import type {
   EmailStatusEventData,
   SyncEventData,
   NotificationEventData,
+  AccountUpdatedEventData,
 } from '@/types/sse';
 import type { Email } from '@/types/email';
 
@@ -23,6 +25,7 @@ interface UseSSEOptions {
   onEmailStatusChange?: (data: EmailStatusEventData) => void;
   onSyncEvent?: (data: SyncEventData) => void;
   onNotification?: (data: NotificationEventData) => void;
+  onAccountUpdated?: (data: AccountUpdatedEventData) => void;
 }
 
 interface UseSSEReturn {
@@ -42,14 +45,14 @@ interface UseSSEReturn {
 }
 
 export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
-  const { autoConnect = true, onNewEmail, onEmailStatusChange, onSyncEvent, onNotification } =
+  const { autoConnect = true, onNewEmail, onEmailStatusChange, onSyncEvent, onNotification, onAccountUpdated } =
     options;
   const { token, isAuthenticated } = useAuthStore();
 
   // 稳定化 options 对象，避免每次渲染都创建新的引用
   const stableOptions = useMemo(
-    () => ({ onNewEmail, onEmailStatusChange, onSyncEvent, onNotification }),
-    [onNewEmail, onEmailStatusChange, onSyncEvent, onNotification]
+    () => ({ onNewEmail, onEmailStatusChange, onSyncEvent, onNotification, onAccountUpdated }),
+    [onNewEmail, onEmailStatusChange, onSyncEvent, onNotification, onAccountUpdated]
   );
 
   const clientRef = useRef<FireMailSSEClient | null>(null);
@@ -69,7 +72,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     }
 
     const client = new FireMailSSEClient({
-      baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080',
+      baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1',
       token,
       autoReconnect: true,
       reconnectInterval: 3000,
@@ -149,6 +152,12 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     if (stableOptions.onNotification) {
       client.on('notification', (event) => {
         stableOptions.onNotification!(event.data as NotificationEventData);
+      });
+    }
+
+    if (stableOptions.onAccountUpdated) {
+      client.on('account_updated', (event) => {
+        stableOptions.onAccountUpdated!(event.data as AccountUpdatedEventData);
       });
     }
 
@@ -328,12 +337,45 @@ export function useMailboxSSE() {
     // 这里可以显示应用内通知
   }, []);
 
+  const handleAccountUpdated = useCallback(async (data: AccountUpdatedEventData) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('👤 [useMailboxSSE] 账户更新:', data);
+    }
+
+    const { account_id, group_id } = data;
+    const state = useMailboxStore.getState();
+    const existing = state.accounts.find((a) => a.id === account_id);
+
+    if (existing) {
+      state.updateAccount({
+        ...existing,
+        group_id: typeof group_id === 'number' ? group_id : existing.group_id,
+      });
+    } else {
+      const resp = await apiClient.getEmailAccounts();
+      if (resp.success && resp.data) {
+        useMailboxStore.getState().setAccounts(resp.data);
+      }
+    }
+
+    if (typeof group_id === 'number' && group_id > 0) {
+      const hasGroup = useMailboxStore.getState().groups.some((g) => g.id === group_id);
+      if (!hasGroup) {
+        const groupsResp = await apiClient.getEmailGroups();
+        if (groupsResp.success && groupsResp.data) {
+          useMailboxStore.getState().setGroups(groupsResp.data);
+        }
+      }
+    }
+  }, []);
+
   const sse = useSSE({
     autoConnect: true,
     onNewEmail: handleNewEmail,
     onEmailStatusChange: handleEmailStatusChange,
     onSyncEvent: handleSyncEvent,
     onNotification: handleNotification,
+    onAccountUpdated: handleAccountUpdated,
   });
 
   // 清除新邮件计数

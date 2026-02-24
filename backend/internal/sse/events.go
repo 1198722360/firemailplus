@@ -40,6 +40,7 @@ const (
 	EventAccountConnected    EventType = "account_connected"
 	EventAccountDisconnected EventType = "account_disconnected"
 	EventAccountError        EventType = "account_error"
+	EventAccountUpdated      EventType = "account_updated"
 
 	// 系统事件
 	EventHeartbeat    EventType = "heartbeat"
@@ -110,6 +111,13 @@ type AccountEventData struct {
 	Provider     string `json:"provider"`
 	Status       string `json:"status"` // connected, disconnected, error
 	ErrorMessage string `json:"error_message,omitempty"`
+}
+
+// AccountUpdatedEventData 账户更新事件数据
+// 用于通知前端“账户信息已变更”（例如分组移动），避免 UI 长时间使用旧缓存。
+type AccountUpdatedEventData struct {
+	AccountID uint  `json:"account_id"`
+	GroupID   *uint `json:"group_id,omitempty"`
 }
 
 // NotificationEventData 通知事件数据
@@ -346,5 +354,21 @@ func NewAccountEvent(eventType EventType, accountID uint, accountName, provider 
 		Timestamp: time.Now(),
 	}
 
+	return event
+}
+
+// NewAccountUpdatedEvent 创建账户更新事件
+func NewAccountUpdatedEvent(account *models.EmailAccount, userID uint) *Event {
+	if account == nil {
+		return NewEvent(EventAccountUpdated, &AccountUpdatedEventData{}, userID)
+	}
+
+	data := &AccountUpdatedEventData{
+		AccountID: account.ID,
+		GroupID:   account.GroupID,
+	}
+	event := NewEvent(EventAccountUpdated, data, userID)
+	event.AccountID = &account.ID
+	event.Priority = PriorityNormal
 	return event
 }
