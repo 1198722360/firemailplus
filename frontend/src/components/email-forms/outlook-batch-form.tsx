@@ -26,7 +26,7 @@ import { EmailGroupSelector } from './email-group-selector';
 const outlookBatchSchema = z.object({
   batchData: z.string().min(1, '请输入批量数据'),
   namePrefix: z.string().min(1, '请输入账户名称前缀'),
-  concurrency: z.coerce.number().int().min(1, '并发数最小为 1').max(20, '并发数最大为 20'),
+  concurrency: z.coerce.number().int().min(1, '并发数最小为 1').max(999, '并发数最大为 999'),
 });
 
 type OutlookBatchForm = z.infer<typeof outlookBatchSchema>;
